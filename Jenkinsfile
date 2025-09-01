@@ -46,24 +46,14 @@ pipeline {
             }
         }
 
-        stage('Unit tests') {
+        stage('Tests via docker-compose') {
             steps {
-                sh 'docker-compose exec -T web pytest tests/test_accounts_models.py tests/test_blog_models.py --ds=blogproject.settings --junitxml=unit-test-results.xml'
+                sh 'docker-compose run --rm tests bash -c "pytest tests/ --ds=blogproject.settings --junitxml=results.xml"'
+                sh 'docker cp $(docker-compose ps -q tests):/code/results.xml results.xml || true'
             }
             post {
                 always {
-                    junit 'unit-test-results.xml'
-                }
-            }
-        }
-
-        stage('Integration tests') {
-            steps {
-                sh 'docker-compose exec -T web pytest tests/test_accounts_integration.py tests/test_blog_integration.py --ds=blogproject.settings --junitxml=integration-test-results.xml'
-            }
-            post {
-                always {
-                    junit 'integration-test-results.xml'
+                    junit 'results.xml'
                 }
             }
         }
