@@ -70,7 +70,6 @@ pipeline {
         stage('Docker smoke test') {
             steps {
                 sh 'docker run -d --rm -p 8000:8000 --name blog_smoke_test blogproject:latest'
-                sh 'sleep 10'
                 sh 'curl -f http://localhost:8000 || (docker logs blog_smoke_test && exit 1)'
                 sh 'docker stop blog_smoke_test'
             }
