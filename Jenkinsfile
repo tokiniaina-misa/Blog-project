@@ -2,11 +2,6 @@ pipeline {
     agent any
 
     stages {
-        stage('Wait for DB') {
-            steps {
-                sh 'docker-compose exec -T db pg_isready -U bloguser -d blogdb'
-            }
-        }
         stage('Checkout') {
             steps {
                 checkout scm
@@ -24,6 +19,12 @@ pipeline {
         stage('Build and Start Services') {
             steps {
                 sh 'docker-compose up -d --build db web'
+            }
+        }
+
+        stage('Wait for DB') {
+            steps {
+                sh 'docker-compose exec -T db pg_isready -U bloguser -d blogdb'
             }
         }
 
