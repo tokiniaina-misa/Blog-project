@@ -2,6 +2,11 @@ pipeline {
     agent any
 
     stages {
+        stage('Wait for DB') {
+            steps {
+                sh 'docker-compose exec -T db pg_isready -U bloguser -d blogdb'
+            }
+        }
         stage('Checkout') {
             steps {
                 checkout scm
@@ -74,7 +79,7 @@ pipeline {
 
     post {
         always {
-            sh 'rm env_file || true'
+            sh 'rm .env || true'
             sh 'docker-compose down || true'
             cleanWs()
         }
