@@ -57,7 +57,7 @@
                 }, 10);
                 setTimeout(() => p.remove(), 800);
             }
-            setTimeout(function(){ window.location.href = '{% url 'blog:post_create' %}'; }, 700);
+            setTimeout(function(){ window.location.href = "{% url 'blog:post_create' %}"; }, 700);
         };
         </script>
         {% endif %}
@@ -87,7 +87,7 @@
                 {% for trend in trending %}
                     <li class="mb-2 flex items-center">
                         {% with color_class="bg-blue-500" %}
-                          {% if trend.color and trend.color in ['blue','red','green','yellow','purple','pink','indigo','gray','orange','teal','cyan','lime','amber','emerald','fuchsia','rose'] %}
+                          {% if trend.color and trend.color in allowed_colors %}
                             {% with color_class="bg-"|add:trend.color|add:"-500" %}{% endwith %}
                           {% endif %}
                           <span class="inline-block w-2 h-2 rounded-full mr-2 {{ color_class }}"></span>

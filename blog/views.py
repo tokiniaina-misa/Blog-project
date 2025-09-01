@@ -215,4 +215,18 @@ def post_list(request):
     notif_count = 0
     if request.user.is_authenticated:
         notif_count = Notification.objects.filter(user=request.user, is_read=False).count()
-    return render(request, 'blog/post_list.html', {'page_obj': page_obj, 'query': query, 'notif_count': notif_count})
+
+    allowed_colors = ['blue','red','green','yellow','purple','pink','indigo','gray','orange','teal','cyan','lime','amber','emerald','fuchsia','rose']
+
+    # Pour éviter une autre erreur, on passe trending et topics si besoin (à adapter selon votre logique)
+    trending = []
+    topics = []
+
+    return render(request, 'blog/post_list.html', {
+        'page_obj': page_obj,
+        'query': query,
+        'notif_count': notif_count,
+        'allowed_colors': allowed_colors,
+        'trending': trending,
+        'topics': topics,
+    })
