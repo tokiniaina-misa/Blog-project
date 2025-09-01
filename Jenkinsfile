@@ -2,6 +2,12 @@ pipeline {
     agent any
 
     stages {
+        stage('Clean Docker') {
+            steps {
+                sh 'docker-compose down -v || true'
+                sh 'docker system prune -af || true'
+            }
+        }
         stage('Checkout') {
             steps {
                 checkout scm
