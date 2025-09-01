@@ -6,10 +6,6 @@ pipeline {
         PIP_CACHE_DIR = '.pip-cache'
     }
 
-    options {
-        timestamps()
-        ansiColor('xterm')
-    }
 
     stages {
         stage('Checkout') {
@@ -32,22 +28,14 @@ pipeline {
             }
         }
 
-        // ...
-
         stage('Migrate DB') {
             steps {
-                sh '. venv/bin/activate && python manage.py migrate'
+        stage('Set up Python & Install dependencies') {
+            steps {
+                sh 'python3 -m venv venv'
+                sh '. venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt'
             }
         }
-
-        stage('Collectstatic') {
-            steps {
-                sh '. venv/bin/activate && python manage.py collectstatic --noinput'
-            }
-        }
-
-        stage('Unit tests') {
-            steps {
                 sh '. venv/bin/activate && pytest tests/test_accounts_models.py tests/test_blog_models.py --ds=blogproject.settings --junitxml=unit-test-results.xml --cov=accounts --cov=blog --cov-report=xml'
             }
             post {
