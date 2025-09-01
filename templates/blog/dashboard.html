@@ -1,0 +1,43 @@
+{% extends 'accounts/base_auth.html' %}
+{% block title %}Mon dashboard{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto mt-8">
+    <h2 class="text-2xl font-bold text-blue-600 mb-6">Mon dashboard</h2>
+    <div class="grid md:grid-cols-2 gap-8">
+        <div>
+            <h3 class="text-lg font-semibold mb-2">Mes articles</h3>
+            <ul>
+                {% for post in posts %}
+                    <li class="flex items-center gap-2 mb-2">
+                        <a href="{% url 'blog:post_detail' post.id %}" class="text-blue-600 hover:underline font-semibold">{{ post.title }}</a>
+                        <a href="/post/{{ post.id }}/edit/" class="text-yellow-500 hover:text-yellow-700 text-xs border border-yellow-400 rounded px-2 py-0.5">Modifier</a>
+                        <a href="/post/{{ post.id }}/delete/" class="text-red-600 hover:text-red-800 text-xs border border-red-400 rounded px-2 py-0.5">Supprimer</a>
+                    </li>
+                {% empty %}
+                    <li class="text-gray-500">Aucun article.</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div>
+            <h3 class="text-lg font-semibold mb-2">Mes likes</h3>
+            <ul>
+                {% for post in liked_posts %}
+                    <li><a href="/post/{{ post.id }}/" class="text-blue-600 hover:underline">{{ post.title }}</a></li>
+                {% empty %}
+                    <li class="text-gray-500">Aucun like.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="mt-8">
+        <h3 class="text-lg font-semibold mb-2">Mes commentaires</h3>
+        <ul>
+            {% for comment in comments %}
+                <li>{{ comment.content|truncatewords:10 }} <span class="text-xs text-gray-500">sur <a href="/post/{{ comment.post.id }}/" class="text-blue-600 hover:underline">{{ comment.post.title }}</a></span></li>
+            {% empty %}
+                <li class="text-gray-500">Aucun commentaire.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

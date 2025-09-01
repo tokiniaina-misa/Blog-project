@@ -1,0 +1,42 @@
+{% extends 'accounts/base_auth.html' %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto mt-8">
+    <h2 class="text-2xl font-bold text-blue-600 mb-6">Mes notifications</h2>
+    <ul id="notif-list">
+        {% for notif in notifications %}
+            <a href="{{ notif.url }}" class="block mb-4">
+                <li class="p-4 rounded shadow bg-white flex items-center justify-between cursor-pointer hover:bg-blue-50 {% if notif.is_read %}opacity-60{% endif %} transition-all duration-300 animate-fade-in">
+                    <div>
+                        <span class="font-semibold text-blue-700">{{ notif.message }}</span>
+                        <span class="text-xs text-gray-400 ml-2">{{ notif.created_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    {% if not notif.is_read %}
+                        <form method="post" action="{% url 'blog:mark_notification_read' notif.id %}">
+                            {% csrf_token %}
+                            <button class="ml-4 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Marquer comme lu</button>
+                        </form>
+                    {% endif %}
+                </li>
+            </a>
+        {% empty %}
+            <li class="text-gray-500">Aucune notification.</li>
+        {% endfor %}
+    </ul>
+    <script>
+    function refreshNotifications() {
+        fetch(window.location.pathname, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(r => r.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newList = doc.getElementById('notif-list');
+                if (newList) {
+                    document.getElementById('notif-list').innerHTML = newList.innerHTML;
+                }
+            });
+    }
+    setInterval(refreshNotifications, 15000);
+    </script>
+</div>
+{% endblock %}
