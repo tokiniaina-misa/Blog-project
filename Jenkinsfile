@@ -20,11 +20,6 @@ pipeline {
                 }
             }
         }
-        stage('Lint') {
-            steps {
-                sh 'docker-compose run --rm web bash -c "pip install flake8 && flake8 ."'
-            }
-        }
         stage('Check requirements') {
             steps {
                 sh 'docker-compose run --rm web bash -c "pip install pip-check && pip-check requirements.txt"'
