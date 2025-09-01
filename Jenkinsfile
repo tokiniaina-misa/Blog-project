@@ -8,6 +8,14 @@ pipeline {
             }
         }
 
+        stage('Inject .env from Jenkins Credentials') {
+            steps {
+                withCredentials([file(credentialsId: 'env_file', variable: 'ENV_FILE')]) {
+                    sh 'cp "$ENV_FILE" .env'
+                }
+            }
+        }
+
         stage('Build and Start Services') {
             steps {
                 sh 'docker-compose up -d --build db web'
@@ -66,6 +74,7 @@ pipeline {
 
     post {
         always {
+            sh 'rm env_file || true'
             sh 'docker-compose down || true'
             cleanWs()
         }
