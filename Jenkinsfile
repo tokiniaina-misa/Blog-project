@@ -42,7 +42,7 @@ pipeline {
 
         stage('Unit tests') {
             steps {
-                sh 'docker-compose exec -T web pytest tests/test_accounts_models.py tests/test_blog_models.py --ds=blogproject.settings --junitxml=unit-test-results.xml --cov=accounts --cov=blog --cov-report=xml'
+                sh 'docker-compose exec -T web pytest tests/test_accounts_models.py tests/test_blog_models.py --ds=blogproject.settings --junitxml=unit-test-results.xml'
             }
             post {
                 always {
