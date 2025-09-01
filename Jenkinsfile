@@ -1,12 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        DJANGO_SETTINGS_MODULE = 'blogproject.settings'
-        PIP_CACHE_DIR = '.pip-cache'
-    }
-
-
     stages {
         stage('Checkout') {
             steps {
@@ -14,29 +8,27 @@ pipeline {
             }
         }
 
-        stage('Set up Python') {
+        stage('Build and Start Services') {
             steps {
-                sh 'python3 --version'
-                sh 'python3 -m venv venv'
-                sh '. venv/bin/activate && pip install --upgrade pip'
-            }
-        }
-
-        stage('Install dependencies') {
-            steps {
-                sh '. venv/bin/activate && pip install -r requirements.txt'
+                sh 'docker-compose up -d --build db web'
             }
         }
 
         stage('Migrate DB') {
             steps {
-        stage('Set up Python & Install dependencies') {
-            steps {
-                sh 'python3 -m venv venv'
-                sh '. venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt'
+                sh 'docker-compose exec -T web python manage.py migrate'
             }
         }
-                sh '. venv/bin/activate && pytest tests/test_accounts_models.py tests/test_blog_models.py --ds=blogproject.settings --junitxml=unit-test-results.xml --cov=accounts --cov=blog --cov-report=xml'
+
+        stage('Collectstatic') {
+            steps {
+                sh 'docker-compose exec -T web python manage.py collectstatic --noinput'
+            }
+        }
+
+        stage('Unit tests') {
+            steps {
+                sh 'docker-compose exec -T web pytest tests/test_accounts_models.py tests/test_blog_models.py --ds=blogproject.settings --junitxml=unit-test-results.xml --cov=accounts --cov=blog --cov-report=xml'
             }
             post {
                 always {
@@ -44,6 +36,33 @@ pipeline {
                 }
             }
         }
+
+        stage('Integration tests') {
+            steps {
+                sh 'docker-compose exec -T web pytest tests/test_accounts_integration.py tests/test_blog_integration.py --ds=blogproject.settings --junitxml=integration-test-results.xml'
+            }
+            post {
+                always {
+                    junit 'integration-test-results.xml'
+                }
+            }
+        }
+
+        stage('Build Docker image') {
+            steps {
+                sh 'docker build -t blogproject:latest .'
+            }
+        }
+
+        stage('Docker smoke test') {
+            steps {
+                sh 'docker run -d --rm -p 8000:8000 --name blog_smoke_test blogproject:latest'
+                sh 'sleep 10'
+                sh 'curl -f http://localhost:8000 || (docker logs blog_smoke_test && exit 1)'
+                sh 'docker stop blog_smoke_test'
+            }
+        }
+    }
 
         stage('Integration tests') {
             steps {
@@ -74,6 +93,7 @@ pipeline {
 
     post {
         always {
+            sh 'docker-compose down || true'
             cleanWs()
         }
     }
