@@ -49,6 +49,10 @@ jobs:
             sleep 2
           done
 
+      - name: Set environment variables
+        run: |
+          echo "ALLOWED_HOSTS=localhost,127.0.0.1" >> $GITHUB_ENV
+
       - name: Run migrations
         run: python manage.py migrate
 
