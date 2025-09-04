@@ -4,6 +4,9 @@ pipeline {
     stages {
         stage('Clean Docker') {
             steps {
+                // Arrêt et suppression de tous les conteneurs Docker pour éviter tout conflit
+                sh 'docker stop $(docker ps -aq) || true'
+                sh 'docker rm $(docker ps -aq) || true'
                 sh 'docker-compose down -v || true'
                 sh 'docker system prune -af || true'
             }
@@ -32,7 +35,6 @@ pipeline {
         }
         stage('Wait for DB') {
             steps {
-                // Utilisation d'une boucle pour attendre la base de données
                 sh '''
                     until docker-compose exec -T db pg_isready -U bloguser -d blogdb; do
                         echo "Waiting for database to be ready..."
@@ -53,26 +55,24 @@ pipeline {
         }
         stage('Tests') {
             steps {
-                // Exécution des tests et copie du fichier results.xml dans le workspace Jenkins
                 sh 'docker-compose exec -T web bash -c "pytest tests/ --ds=blogproject.settings --junitxml=results.xml"'
                 sh 'docker cp $(docker-compose ps -q web):/code/results.xml ./results.xml'
             }
             post {
                 always {
-                    // Le fichier results.xml est maintenant dans le workspace Jenkins
                     junit 'results.xml'
                 }
             }
         }
         stage('Build Docker image') {
             steps {
+                sh 'docker stop $(docker ps -q --filter "publish=8000") || true'
                 sh 'docker build -t blogproject:latest .'
             }
         }
         stage('Docker smoke test') {
             steps {
                 sh 'docker run -d --rm -p 8000:8000 --name blog_smoke_test blogproject:latest'
-                // Utilisation d'une boucle pour attendre que l'application démarre
                 sh '''
                     until curl -f http://localhost:8000; do
                         echo "Waiting for application to start..."
