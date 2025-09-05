@@ -8,9 +8,8 @@ from django.contrib.auth.models import User
 def test_access_protected_view(client):
     """
     Vérifie qu'un utilisateur non authentifié est redirigé depuis une vue protégée.
-    À adapter avec l'URL d'une vue nécessitant une connexion.
     """
-    url = reverse('profile')  # Remplace 'profile' par le nom de ta vue protégée
+    url = reverse('accounts:profile')  # Utilise le namespace correct
     response = client.get(url)
     assert response.status_code == 302  # Redirection vers la page de login
 
@@ -21,6 +20,6 @@ def test_access_protected_view_authenticated(client):
     """
     user = User.objects.create_user(username='testuser', password='testpass')
     client.login(username='testuser', password='testpass')
-    url = reverse('profile')  # Remplace 'profile' par le nom de ta vue protégée
+    url = reverse('accounts:profile')  # Utilise le namespace correct
     response = client.get(url)
     assert response.status_code == 200

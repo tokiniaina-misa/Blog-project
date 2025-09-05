@@ -8,10 +8,9 @@ from django.contrib.auth.models import User
 def test_user_signup_login_post(client):
     """
     Teste le workflow complet : inscription, connexion, création de post.
-    À adapter selon tes modèles et vues.
     """
     # Inscription
-    signup_url = reverse('register')  # Remplace par le nom de ta vue d'inscription
+    signup_url = reverse('accounts:register')  # Utilise le namespace correct
     signup_data = {
         'username': 'workflowuser',
         'email': 'workflow@example.com',
@@ -23,13 +22,13 @@ def test_user_signup_login_post(client):
     assert User.objects.filter(username='workflowuser').exists()
 
     # Connexion
-    login_url = reverse('login')  # Remplace par le nom de ta vue de login
+    login_url = reverse('accounts:login')  # Utilise le namespace correct
     login_data = {'username': 'workflowuser', 'password': 'StrongPass123'}
     response = client.post(login_url, login_data)
     assert response.status_code in (200, 302)
 
     # Création de post (exemple)
-    # post_url = reverse('post_create')  # Remplace par la vue de création de post
+    # post_url = reverse('blog:post_create')  # Utilise le namespace correct
     # post_data = {'title': 'Titre', 'content': 'Contenu'}
     # response = client.post(post_url, post_data)
     # assert response.status_code in (200, 302)

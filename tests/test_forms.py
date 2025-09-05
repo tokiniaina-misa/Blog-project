@@ -17,6 +17,7 @@ def test_register_form_valid():
     form = RegisterForm(data=form_data)
     assert form.is_valid()
 
+@pytest.mark.django_db
 def test_register_form_password_mismatch():
     """
     Teste que le formulaire d'inscription détecte un mot de passe non concordant.
