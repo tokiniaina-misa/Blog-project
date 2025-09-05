@@ -1,7 +1,7 @@
 # tests/test_forms.py
 
 import pytest
-from forms.register_form import RegisterForm
+from accounts.forms.register_form import RegisterForm
 
 @pytest.mark.django_db
 def test_register_form_valid():
