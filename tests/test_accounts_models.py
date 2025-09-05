@@ -5,6 +5,7 @@ import uuid
 
 @pytest.mark.django_db
 def test_email_verification_token_str():
+    # Teste la conversion en chaîne du token de vérification d'email
     user = get_user_model().objects.create_user(username='testuser', email='test@example.com', password='pass')
     token_uuid = uuid.uuid4()
     token = EmailVerificationToken.objects.create(user=user, token=token_uuid)

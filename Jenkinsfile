@@ -23,40 +23,38 @@ pipeline {
                 }
             }
         }
-        stage('Check requirements') {
+        stage('Install dependencies') {
             steps {
-                sh 'docker-compose run --rm web bash -c "pip install -r requirements.txt"'
-            }
-        }
-        stage('Build and Start Services') {
-            steps {
-                sh 'docker-compose up -d --build db web'
+                sh 'pip install -r requirements.txt'
             }
         }
         stage('Wait for DB') {
             steps {
                 sh '''
-                    until docker-compose exec -T db pg_isready -U bloguser -d blogdb; do
+                    for i in {1..5}; do
+                        if pg_isready -h localhost -U bloguser -d blogdb; then
+                            echo "Database is ready!"
+                            break
+                        fi
                         echo "Waiting for database to be ready..."
                         sleep 2
                     done
                 '''
             }
         }
-        stage('Migrate DB') {
+        stage('Run migrations') {
             steps {
-                sh 'docker-compose exec -T web python manage.py migrate'
+                sh 'python manage.py migrate'
             }
         }
-        stage('Collectstatic') {
+        stage('Collect static files') {
             steps {
-                sh 'docker-compose exec -T web python manage.py collectstatic --noinput'
+                sh 'python manage.py collectstatic --noinput'
             }
         }
-        stage('Tests') {
+        stage('Run tests') {
             steps {
-                sh 'docker-compose exec -T web bash -c "pytest tests/ --ds=blogproject.settings --junitxml=results.xml"'
-                sh 'docker cp $(docker-compose ps -q web):/code/results.xml ./results.xml'
+                sh 'pytest tests/ --ds=blogproject.settings --junitxml=results.xml'
             }
             post {
                 always {
@@ -74,7 +72,11 @@ pipeline {
             steps {
                 sh 'docker run -d --rm -p 8000:8000 --name blog_smoke_test blogproject:latest'
                 sh '''
-                    until curl -f http://localhost:8000; do
+                    for i in {1..5}; do
+                        if curl -f http://localhost:8000; then
+                            echo "Application is up!"
+                            break
+                        fi
                         echo "Waiting for application to start..."
                         sleep 2
                     done
