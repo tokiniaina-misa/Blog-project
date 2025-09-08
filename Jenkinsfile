@@ -68,20 +68,14 @@ pipeline {
                 sh 'docker build -t blogproject:latest .'
             }
         }
-        stage('Docker smoke test') {
+        stage('Docker curl test') {
             steps {
-                sh 'docker run -d --rm -p 8000:8000 --name blog_smoke_test blogproject:latest'
-                sh '''
-                    for i in {1..5}; do
-                        if curl -f http://localhost:8000; then
-                            echo "Application is up!"
-                            break
-                        fi
-                        echo "Waiting for application to start..."
-                        sleep 2
-                    done
-                '''
-                sh 'docker stop blog_smoke_test'
+               
+                sh 'docker run -d --rm -p 8000:8000 --name blog_curl_test blogproject:latest'
+               
+                sh 'curl -f http://localhost:8000/accounts/profile/ || (docker logs blog_curl_test && exit 1)'
+                
+                sh 'docker stop blog_curl_test'
             }
         }
     }
