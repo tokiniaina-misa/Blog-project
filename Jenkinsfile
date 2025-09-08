@@ -4,11 +4,14 @@ pipeline {
     stages {
         stage('Clean Docker') {
             steps {
-                // Arrêt et suppression de tous les conteneurs Docker pour éviter tout conflit
-                sh 'docker stop $(docker ps -aq) || true'
-                sh 'docker rm $(docker ps -aq) || true'
-                sh 'docker-compose down -v || true'
-                sh 'docker system prune -af || true'
+                // Arrêter tous les containers
+            sh 'docker stop $(docker ps -aq) || true'
+            // Supprimer tous les containers
+            sh 'docker rm $(docker ps -aq) || true'
+            // Nettoyer les volumes et networks (si docker-compose existe)
+            sh 'docker-compose down -v --remove-orphans || true'
+            // Nettoyer le système
+            sh 'docker system prune -af --volumes || true'
             }
         }
         stage('Checkout') {
