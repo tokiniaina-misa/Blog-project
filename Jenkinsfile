@@ -25,7 +25,12 @@ pipeline {
         }
         stage('Install dependencies') {
             steps {
-                sh 'pip install -r requirements.txt'
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                '''
             }
         }
         stage('Wait for DB') {
@@ -44,17 +49,17 @@ pipeline {
         }
         stage('Run migrations') {
             steps {
-                sh 'python manage.py migrate'
+                sh '. venv/bin/activate && python manage.py migrate'
             }
         }
         stage('Collect static files') {
             steps {
-                sh 'python manage.py collectstatic --noinput'
+                sh '. venv/bin/activate && python manage.py collectstatic --noinput'
             }
         }
         stage('Run tests') {
             steps {
-                sh 'pytest tests/ --ds=blogproject.settings --junitxml=results.xml'
+                sh '. venv/bin/activate && pytest tests/ --ds=blogproject.settings --junitxml=results.xml'
             }
             post {
                 always {
