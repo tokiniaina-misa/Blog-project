@@ -36,11 +36,8 @@ pipeline {
         stage('Wait for DB') {
             steps {
                 sh '''
-                    for i in {1..5}; do
-                        if pg_isready -h localhost -U bloguser -d blogdb; then
-                            echo "Database is ready!"
-                            break
-                        fi
+                    for i in {1..10}; do
+                        pg_isready -h localhost -U bloguser -d blogdb && break
                         echo "Waiting for database to be ready..."
                         sleep 2
                     done
@@ -69,17 +66,13 @@ pipeline {
         }
         stage('Build Docker image') {
             steps {
-                sh 'docker stop $(docker ps -q --filter "publish=8000") || true'
                 sh 'docker build -t blogproject:latest .'
             }
         }
         stage('Docker curl test') {
             steps {
-               
                 sh 'docker run -d --rm -p 8000:8000 --name blog_curl_test blogproject:latest'
-               
                 sh 'curl -f http://localhost:8000/accounts/profile/ || (docker logs blog_curl_test && exit 1)'
-                
                 sh 'docker stop blog_curl_test'
             }
         }
