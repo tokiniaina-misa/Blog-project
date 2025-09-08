@@ -18,7 +18,7 @@ pipeline {
         }
         stage('Inject .env from Jenkins Credentials') {
             steps {
-                withCredentials([file(credentialsId: 'env_file', variable: 'ENV_FILE')]) {
+                withCredentials([file(credentialsId: '.env', variable: 'ENV_FILE')]) {
                     sh 'cp "$ENV_FILE" .env'
                 }
             }
