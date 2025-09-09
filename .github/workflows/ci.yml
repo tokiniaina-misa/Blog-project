@@ -7,121 +7,67 @@ on:
     branches: [main]
 
 jobs:
-  build-test:
+  test:
     runs-on: ubuntu-latest
 
     services:
-      db:
+      postgres:
         image: postgres:15
         env:
           POSTGRES_DB: blogdb
           POSTGRES_USER: bloguser
-          POSTGRES_PASSWORD: blogpassword
+          POSTGRES_PASSWORD: blogpass
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U bloguser -d blogdb"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
-    env:
-      DATABASE_URL: postgres://bloguser:blogpassword@localhost:5432/blogdb
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create .env file from secret
-        run: echo "${{ secrets.ENV_FILE }}" > .env
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest pytest-django pytest-cov
 
-      - name: Wait for DB
+      - name: Run Migrations
+        env:
+          DJANGO_SETTINGS_MODULE: blogproject.settings
+          DATABASE_URL: postgres://bloguser:blogpass@localhost:5432/blogdb
         run: |
-          for i in {1..10}; do
-            pg_isready -h localhost -U bloguser -d blogdb && break
-            sleep 2
-          done
-
-      - name: Override DB host for CI
-        run: echo "POSTGRES_HOST=localhost" >> $GITHUB_ENV
-
-      - name: Set environment variables
-        run: |
-          echo "ALLOWED_HOSTS=localhost,127.0.0.1" >> $GITHUB_ENV
-          echo "DJANGO_SETTINGS_MODULE=blogproject.settings" >> $GITHUB_ENV
-
-      - name: Install test dependencies
-        run: |
-          pip install pytest-django pytest-cov
-
-      - name: Run migrations
-        run: |
-          export DJANGO_SETTINGS_MODULE=blogproject.settings
           python manage.py migrate
 
-      - name: Collect static files
-        run: |
-          export DJANGO_SETTINGS_MODULE=blogproject.settings
-          python manage.py collectstatic --noinput
-
-      - name: Run Tests in Docker
-        run: |
-          docker-compose up --build --exit-code-from tests tests
+      - name: Run Tests
         env:
-          DOCKER_BUILDKIT: 1
-
-      - name: Copy Test Results from Docker
-        if: always()
+          DJANGO_SETTINGS_MODULE: blogproject.settings
+          DATABASE_URL: postgres://bloguser:blogpass@localhost:5432/blogdb
         run: |
           mkdir -p test-results
-          docker cp $(docker ps -aqf "name=blog-project_tests_1"):/code/test-results/ .
           
-      - name: Process Test Results
-        if: always()
-        run: |
-          echo "Processing test results..."
-          if [ -f "test-results/unit-results.xml" ]; then
-            echo "Unit Tests Results found"
-          fi
-          if [ -f "test-results/integration-results.xml" ]; then
-            echo "Integration Tests Results found"
-          fi
-          if [ -f "test-results/performance-results.xml" ]; then
-            echo "Performance Tests Results found"
-          fi
-          if [ -f "test-results/db-results.xml" ]; then
-            echo "Database Tests Results found"
-          fi
+          echo "Running Unit Tests..."
+          pytest tests/core_tests/test_units.py -v --junitxml=test-results/unit.xml
+          
+          echo "Running Integration Tests..."
+          pytest tests/core_tests/test_integration.py -v --junitxml=test-results/integration.xml
+          
+          echo "Running All Tests with Coverage..."
+          pytest tests/core_tests/ --cov=./ --cov-report=xml:test-results/coverage.xml --cov-report=html:test-results/htmlcov
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v4
         if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: test-results/
-          retention-days: 30
-
-      - name: Upload Coverage Reports
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./test-results/coverage.xml
-          fail_ci_if_error: false
-
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v3
-        if: always()
-        with:
-          report_paths: 'test-results/*.xml'
-          fail_on_failure: false
-          require_tests: true
-          include_passed: true
+          path: |
+            test-results/*.xml
+            test-results/htmlcov/
+          retention-days: 7
