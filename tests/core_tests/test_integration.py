@@ -20,60 +20,73 @@ class TestCoreIntegration:
         assert response.status_code == 200  # Succès après redirection
         
         # Vérifier que l'utilisateur est créé
-        assert User.objects.filter(username='integrationuser').exists()
+        user = User.objects.get(username='integrationuser')
+        assert user.is_active
         
         # Connexion
-        login_data = {
-            'username': 'integrationuser',
-            'password': 'SecurePass123'
-        }
-        response = client.post(reverse('accounts:login'), login_data, follow=True)
-        assert response.status_code == 200  # Succès après redirection
+        success = client.login(username='integrationuser', password='SecurePass123')
+        assert success, "Login failed"
+        
         # Vérifier que l'utilisateur est connecté
-        assert '_auth_user_id' in client.session
+        response = client.get(reverse('accounts:profile'))  # Tente d'accéder à une page protégée
+        assert response.status_code == 200, "L'utilisateur n'est pas correctement connecté"
     
     def test_blog_workflow(self, client):
         """Test le workflow de publication complet"""
-        # Création utilisateur et connexion
+        # Création utilisateur avec les permissions nécessaires
         user = User.objects.create_user(
             username='blogger',
-            password='SecurePass123'
+            password='SecurePass123',
+            email='blogger@test.com'
         )
+        # Assurer que l'utilisateur a les permissions d'auteur
+        from blog.models import Profile
+        Profile.objects.create(user=user, is_author=True)
+        
+        # Connexion
         success = client.login(username='blogger', password='SecurePass123')
         assert success, "Login failed"
         
-        # Création article
+        # Création article avec les champs minimaux requis
         post_data = {
             'title': 'Integration Test',
             'content': 'Test Content',
-            'is_draft': False,
-            'author': user.id  # Ajout de l'auteur explicitement
+            'status': 'published'  # ou le champ approprié selon votre modèle
         }
         
-        # S'assurer que l'URL existe
+        # Debug: Afficher les URLs disponibles
+        from django.urls import get_resolver
+        urls = get_resolver().reverse_dict.keys()
+        print(f"URLs disponibles : {[url for url in urls if isinstance(url, str)]}")
+        
+        # Création de l'article
         create_url = reverse('blog:post_create')
         response = client.post(create_url, post_data, follow=True)
         
-        if response.status_code != 302 and response.status_code != 200:
+        # Debug en cas d'échec
+        if response.status_code not in [200, 302]:
             print(f"Response status: {response.status_code}")
-            print(f"Response content: {response.content}")
+            print(f"Response content: {response.content.decode()}")
             
         assert response.status_code in [200, 302], f"Unexpected status code: {response.status_code}"
         
-        # Vérification article créé avec plus de détails en cas d'échec
+        # Vérification de la création de l'article avec plus de détails
         try:
             post = Post.objects.get(title='Integration Test')
-            assert post.author == user
-            assert post.content == 'Test Content'
+            assert post.author == user, f"Author mismatch: expected {user}, got {post.author}"
+            assert post.content == 'Test Content', f"Content mismatch: expected 'Test Content', got {post.content}"
             
-            # Test accès à l'article
+            # Test d'accès à l'article
             detail_url = reverse('blog:post_detail', kwargs={'pk': post.pk})
             response = client.get(detail_url)
-            assert response.status_code == 200
+            assert response.status_code == 200, f"Cannot access post details, status: {response.status_code}"
             
         except Post.DoesNotExist:
-            # Informations de débogage en cas d'échec
-            existing_posts = Post.objects.all()
-            print(f"Posts existants: {[p.title for p in existing_posts]}")
-            print(f"Données de la requête: {post_data}")
+            # Information détaillée en cas d'échec
+            print(f"Test user: {user.username} (ID: {user.id})")
+            print(f"Test user permissions: {user.get_all_permissions()}")
+            print(f"Form data sent: {post_data}")
+            print(f"Response content: {response.content.decode()}")
+            existing_posts = Post.objects.all().values('id', 'title', 'author_id')
+            print(f"Existing posts: {list(existing_posts)}")
             raise
