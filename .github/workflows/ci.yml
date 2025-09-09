@@ -37,6 +37,9 @@ jobs:
         env:
           ENV_FILE: ${{ secrets.ENV_FILE }}
 
+      - name: Patch .env for CI database host
+        run: sed -i 's/^POSTGRES_HOST=.*/POSTGRES_HOST=localhost/' .env
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
