@@ -10,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     ports:
-      - "5432:5432"
+      - "5433:5432" # Changement du port hôte pour éviter le conflit
 
   web:
     build: .
@@ -26,26 +26,7 @@ services:
 
   tests:
     build: .
-    command: >
-      bash -c "
-        echo 'Installing test dependencies...' &&
-        pip install pytest-django pytest-cov &&
-        echo 'Waiting for database...' &&
-        while ! nc -z db 5432; do sleep 1; done &&
-        echo 'Database is ready!' &&
-        python manage.py migrate &&
-        mkdir -p /code/test-results &&
-        echo 'Running Unit Tests...' &&
-        pytest tests/core_tests/test_units.py -v --junitxml=/code/test-results/unit-results.xml --ds=blogproject.settings &&
-        echo 'Running Integration Tests...' &&
-        pytest tests/core_tests/test_integration.py -v --junitxml=/code/test-results/integration-results.xml --ds=blogproject.settings &&
-        echo 'Running Performance Tests...' &&
-        pytest tests/core_tests/test_performance.py -v --junitxml=/code/test-results/performance-results.xml --ds=blogproject.settings &&
-        echo 'Running Database Tests...' &&
-        pytest tests/core_tests/test_database.py -v --junitxml=/code/test-results/db-results.xml --ds=blogproject.settings &&
-        echo 'Generating Coverage Report...' &&
-        pytest tests/core_tests/ --cov=./ --cov-report=xml:/code/test-results/coverage.xml --cov-report=html:/code/test-results/htmlcov --ds=blogproject.settings
-      "
+    command: bash -c "python manage.py migrate && pytest --ds=blogproject.settings"
     volumes:
       - .:/code
     environment:
@@ -60,6 +41,4 @@ services:
       - db
 
 volumes:
-  test-results:
-  
   postgres_data:

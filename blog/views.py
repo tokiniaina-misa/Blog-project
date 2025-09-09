@@ -1,4 +1,3 @@
-
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
@@ -206,7 +205,7 @@ from django.db.models import Q
 
 def post_list(request):
     query = request.GET.get('q', '')
-    posts = Post.objects.all().order_by('-created_at')
+    posts = Post.objects.select_related('author').order_by('-created_at')
     if query:
         posts = posts.filter(Q(title__icontains=query) | Q(content__icontains=query))
     paginator = Paginator(posts, 5)
@@ -217,8 +216,6 @@ def post_list(request):
         notif_count = Notification.objects.filter(user=request.user, is_read=False).count()
 
     allowed_colors = ['blue','red','green','yellow','purple','pink','indigo','gray','orange','teal','cyan','lime','amber','emerald','fuchsia','rose']
-
-    # Pour éviter une autre erreur, on passe trending et topics si besoin (à adapter selon votre logique)
     trending = []
     topics = []
 

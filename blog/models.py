@@ -1,4 +1,3 @@
-
 from django.db import models
 from django.contrib.auth.models import User, Group, Permission
 from django.db.models.signals import post_save
@@ -33,6 +32,7 @@ class Post(models.Model):
     likes = models.ManyToManyField(User, related_name='liked_posts', blank=True)
     dislikes = models.ManyToManyField(User, related_name='disliked_posts', blank=True)
     is_draft = models.BooleanField(default=False, verbose_name="Brouillon")
+    status = models.CharField(max_length=20, default='draft', verbose_name="Statut du post")
 
     def __str__(self):
         return self.title
