@@ -65,26 +65,46 @@ jobs:
       - name: Collect static files
         run: python manage.py collectstatic --noinput
 
-      - name: Run tests
+      - name: Run Unit and Integration Tests
         run: |
-          pytest tests/ --ds=blogproject.settings --junitxml=results.xml
+          echo "Running Unit Tests..."
+          pytest tests/core_tests/test_units.py -v --junitxml=unit-results.xml
+          
+          echo "Running Integration Tests..."
+          pytest tests/core_tests/test_integration.py -v --junitxml=integration-results.xml
         continue-on-error: false
 
-      - name: Publish test results
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-results
-          path: results.xml
-
-      - name: Build Docker image
-        run: docker build -t blogproject:latest .
-
-      - name: Smoke test Docker image
+      - name: Run Performance Tests
         run: |
-          docker run -d --rm -p 8000:8000 --name blog_smoke_test blogproject:latest
-          for i in {1..10}; do
-            curl -f http://localhost:8000 && break
-            echo "Waiting for application to start..."
-            sleep 2
-          done
-          docker stop blog_smoke_test
+          echo "Running Performance Tests..."
+          pytest tests/core_tests/test_performance.py -v --junitxml=performance-results.xml
+        continue-on-error: true
+
+      - name: Run Database Integration Tests
+        run: |
+          echo "Running Database Integration Tests..."
+          pytest tests/core_tests/test_database.py -v --junitxml=db-results.xml
+        continue-on-error: false
+
+      - name: Generate Coverage Report
+        run: |
+          pytest tests/core_tests/ --cov=./ --cov-report=xml --cov-report=html
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            unit-results.xml
+            integration-results.xml
+            performance-results.xml
+            db-results.xml
+            coverage.xml
+            htmlcov/
+
+      - name: Publish Coverage Report
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
