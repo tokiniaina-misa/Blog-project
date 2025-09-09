@@ -32,10 +32,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Set environment variables
-        run: |
-          echo "ALLOWED_HOSTS=127.0.0.1,localhost" >> $GITHUB_ENV
-          echo "DEBUG=True" >> $GITHUB_ENV
+      - name: Write .env file from ENV_FILE secret
+        run: echo "$ENV_FILE" > .env
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
 
       - name: Install dependencies
         run: |
@@ -47,8 +47,6 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: blogproject.settings
           DATABASE_URL: postgres://bloguser:blogpass@localhost:5432/blogdb
-          ALLOWED_HOSTS: 127.0.0.1,localhost
-          DEBUG: True
         run: |
           python manage.py migrate
 
@@ -56,8 +54,6 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: blogproject.settings
           DATABASE_URL: postgres://bloguser:blogpass@localhost:5432/blogdb
-          ALLOWED_HOSTS: 127.0.0.1,localhost
-          DEBUG: True
         run: |
           mkdir -p test-results
           pytest tests/core_tests/ --cov=./ --cov-report=xml:test-results/coverage.xml --cov-report=html:test-results/htmlcov --junitxml=test-results/results.xml
