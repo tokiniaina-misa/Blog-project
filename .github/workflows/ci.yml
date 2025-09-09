@@ -74,50 +74,54 @@ jobs:
           export DJANGO_SETTINGS_MODULE=blogproject.settings
           python manage.py collectstatic --noinput
 
-      - name: Run Unit and Integration Tests
+      - name: Run Tests in Docker
         run: |
-          export DJANGO_SETTINGS_MODULE=blogproject.settings
-          echo "Running Unit Tests..."
-          pytest tests/core_tests/test_units.py -v --junitxml=unit-results.xml --ds=blogproject.settings
+          docker-compose up --build --exit-code-from tests tests
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: Copy Test Results from Docker
+        if: always()
+        run: |
+          mkdir -p test-results
+          docker cp $(docker ps -aqf "name=blog-project_tests_1"):/code/test-results/ .
           
-          echo "Running Integration Tests..."
-          pytest tests/core_tests/test_integration.py -v --junitxml=integration-results.xml --ds=blogproject.settings
-        continue-on-error: false
-
-      - name: Run Performance Tests
+      - name: Process Test Results
+        if: always()
         run: |
-          export DJANGO_SETTINGS_MODULE=blogproject.settings
-          echo "Running Performance Tests..."
-          pytest tests/core_tests/test_performance.py -v --junitxml=performance-results.xml --ds=blogproject.settings
-        continue-on-error: true
-
-      - name: Run Database Integration Tests
-        run: |
-          export DJANGO_SETTINGS_MODULE=blogproject.settings
-          echo "Running Database Integration Tests..."
-          pytest tests/core_tests/test_database.py -v --junitxml=db-results.xml --ds=blogproject.settings
-        continue-on-error: false
-
-      - name: Generate Coverage Report
-        run: |
-          export DJANGO_SETTINGS_MODULE=blogproject.settings
-          pytest tests/core_tests/ --cov=./ --cov-report=xml --cov-report=html --ds=blogproject.settings
+          echo "Processing test results..."
+          if [ -f "test-results/unit-results.xml" ]; then
+            echo "Unit Tests Results found"
+          fi
+          if [ -f "test-results/integration-results.xml" ]; then
+            echo "Integration Tests Results found"
+          fi
+          if [ -f "test-results/performance-results.xml" ]; then
+            echo "Performance Tests Results found"
+          fi
+          if [ -f "test-results/db-results.xml" ]; then
+            echo "Database Tests Results found"
+          fi
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
-          path: |
-            unit-results.xml
-            integration-results.xml
-            performance-results.xml
-            db-results.xml
-            coverage.xml
-            htmlcov/
+          path: test-results/
+          retention-days: 30
 
-      - name: Publish Coverage Report
+      - name: Upload Coverage Reports
         uses: codecov/codecov-action@v3
         with:
-          files: ./coverage.xml
+          files: ./test-results/coverage.xml
           fail_ci_if_error: false
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v3
+        if: always()
+        with:
+          report_paths: 'test-results/*.xml'
+          fail_on_failure: false
+          require_tests: true
+          include_passed: true
