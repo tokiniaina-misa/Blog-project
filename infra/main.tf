@@ -1,7 +1,7 @@
 # main.tf
 # Les variables sensibles sont injectées via le pipeline GitHub Actions
 provider "aws" {
-  region     = var.aws_region
+  region     = "eu-north-1"
   access_key = var.aws_access_key
   secret_key = var.aws_secret_key
 }
