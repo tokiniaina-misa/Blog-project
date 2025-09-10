@@ -89,12 +89,13 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+          output-env-credentials: true
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
       - name: Terraform Init
         run: terraform -chdir=infra init
       - name: Terraform Apply
-        run: terraform -chdir=infra apply -auto-approve -var="aws_access_key=${{ secrets.AWS_ACCESS_KEY_ID }}" -var="aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -var="aws_region=${{ secrets.AWS_REGION }}"
+        run: terraform -chdir=infra apply -auto-approve -var="aws_access_key=$AWS_ACCESS_KEY_ID" -var="aws_secret_key=$AWS_SECRET_ACCESS_KEY" -var="aws_region=$AWS_REGION"
       - name: Get EC2 IP
         id: get_ip
         run: |
@@ -148,4 +149,4 @@ jobs:
       - name: Terraform Init
         run: terraform -chdir=infra init
       - name: Terraform Destroy
-        run: terraform -chdir=infra destroy -auto-approve -var="aws_access_key=${{ secrets.AWS_ACCESS_KEY_ID }}" -var="aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -var="aws_region=${{ secrets.AWS_REGION }}"
+        run: terraform -chdir=infra destroy -auto-approve -var="aws_access_key=$AWS_ACCESS_KEY_ID" -var="aws_secret_key=$AWS_SECRET_ACCESS_KEY" -var="aws_region=$AWS_REGION"
