@@ -4,8 +4,13 @@ pipeline {
     environment {
         PYTHON_VERSION = '3.9'
         POSTGRES_USER = 'bloguser'
-        POSTGRES_PASSWORD = 'blogpass'
+        POSTGRES_PASSWORD = 'blogpassword'
         POSTGRES_DB = 'blogdb'
+        AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+        AWS_REGION = 'eu-north-1'
+        DOCKERHUB_USERNAME = credentials('DOCKERHUB_USERNAME')
+        DOCKERHUB_PASSWORD = credentials('DOCKERHUB_PASSWORD')
     }
 
     stages {
@@ -48,22 +53,48 @@ pipeline {
             }
         }
 
+        stage('Build & Push Docker Image') {
+            steps {
+                sh '''
+                    docker build -t $DOCKERHUB_USERNAME/blogproject:latest .
+                    echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+                    docker push $DOCKERHUB_USERNAME/blogproject:latest
+                '''
+            }
+        }
+
+        stage('Terraform Deploy') {
+            steps {
+                sh '''
+                    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                    unzip awscliv2.zip
+                    sudo ./aws/install
+                    export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                    export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+                    export AWS_REGION=$AWS_REGION
+                    terraform -chdir=infra init
+                    terraform -chdir=infra apply -auto-approve -var="aws_access_key=$AWS_ACCESS_KEY_ID" -var="aws_secret_key=$AWS_SECRET_ACCESS_KEY" -var="aws_region=$AWS_REGION"
+                '''
+            }
+        }
+
+        stage('Smoke Test EC2') {
+            steps {
+                script {
+                    def ec2_ip = sh(script: "terraform -chdir=infra output -raw public_ip", returnStdout: true).trim()
+                    sh "curl -f http://${ec2_ip}:8000 || exit 1"
+                }
+            }
+        }
+
         stage('Run Core Tests') {
             steps {
                 sh '''
                     . venv/bin/activate
                     export DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}
-                    
-                    echo "Running Unit and Integration Tests..."
                     pytest tests/core_tests/test_units.py tests/core_tests/test_integration.py -v
-                    
-                    echo "Running Performance Tests..."
                     pytest tests/core_tests/test_performance.py -v
-                    
-                    echo "Running Database Integration Tests..."
                     pytest tests/core_tests/test_database.py -v
-                    
-                    echo "Generating Coverage Report..."
                     pytest tests/core_tests/ --junitxml=test-results/junit.xml --cov=./ --cov-report=xml
                 '''
             }
