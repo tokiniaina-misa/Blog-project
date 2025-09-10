@@ -85,8 +85,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
-      - name: Install AWS CLI
-        run: sudo apt-get update && sudo apt-get install -y awscli
+      - name: Setup AWS CLI
+        uses: aws-actions/setup-cli@v2
       - name: Load Secrets
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
