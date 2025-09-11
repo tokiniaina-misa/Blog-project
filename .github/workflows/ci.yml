@@ -1,152 +1,89 @@
-name: CI
+name: CI-CD
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
+  # 1️⃣ Tests
   verifier-tester:
-    name: Vérifier et tester
     runs-on: ubuntu-latest
-
-    services:
-      db:
-        image: postgres:15
-        env:
-          POSTGRES_DB: blogdb
-          POSTGRES_USER: bloguser
-          POSTGRES_PASSWORD: blogpassword
-        ports:
-          - 5432:5432
-          
-    env:
-      DATABASE_URL: postgres://bloguser:blogpassword@localhost:5432/blogdb
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create .env file from secret
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: python-version: '3.11'
+      - name: Créer .env à partir du secret
         run: echo "${{ secrets.ENV_FILE }}" > .env
+      - run: pip install --upgrade pip && pip install -r requirements.txt
+      - run: pytest tests/ --junitxml=results.xml
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Installer les dépendances
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Attendre la base de données
-        run: |
-          for i in {1..10}; do
-            pg_isready -h localhost -U bloguser -d blogdb && break
-            sleep 2
-          done
-
-      - name: Surcharger l'hôte DB pour CI
-        run: echo "POSTGRES_HOST=localhost" >> $GITHUB_ENV
-
-      - name: Définir les variables d'environnement
-        run: |
-          echo "ALLOWED_HOSTS=localhost,127.0.0.1" >> $GITHUB_ENV
-
-      - name: Exécuter les migrations
-        run: python manage.py migrate
-
-      - name: Collecter les fichiers statiques
-        run: python manage.py collectstatic --noinput
-
-      - name: Exécuter les tests
-        run: |
-          pytest tests/ --ds=blogproject.settings --junitxml=results.xml
-        continue-on-error: false
-
-      - name: Publier les résultats des tests
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-results
-          path: results.xml
-
-  infra-aws:
-    name: Infra AWS Deploy
+  # 2️⃣ Build & Push Docker
+  build-docker:
     runs-on: ubuntu-latest
     needs: verifier-tester
-    if: ${{ success() }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/blogproject:latest .
+      - name: Docker login
+        run: echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/blogproject:latest
+
+  # 3️⃣ Terraform Infra
+  infra-aws:
+    runs-on: ubuntu-latest
+    needs: build-docker
     outputs:
       ec2_ip: ${{ steps.get_ip.outputs.ec2_ip }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-      - name: Setup AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-          output-env-credentials: true
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-      - name: Terraform Init
-        run: terraform -chdir=infra init
-      - name: Terraform Apply
-        run: terraform -chdir=infra apply -auto-approve -var="aws_access_key=$AWS_ACCESS_KEY_ID" -var="aws_secret_key=$AWS_SECRET_ACCESS_KEY" -var="aws_region=$AWS_REGION"
-      - name: Get EC2 IP
-        id: get_ip
+      - name: Load SSH Key
+        run: echo "${{ secrets.EC2_SSH_KEY }}" > ci_key && chmod 600 ci_key
+      - run: |
+          terraform -chdir=infra init
+          terraform -chdir=infra apply -auto-approve \
+            -var="key_pair_name=ci-key" \
+            -var="allowed_ssh_cidr=${{ secrets.MY_IP_CIDR }}"
+      - id: get_ip
         run: |
           IP=$(terraform -chdir=infra output -raw public_ip)
           echo "EC2_IP=$IP" >> $GITHUB_ENV
           echo "ec2_ip=$IP" >> $GITHUB_OUTPUT
+          echo "$IP" > ec2_ip.txt
+      - name: Upload EC2 IP as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ec2-public-ip
+          path: ec2_ip.txt
+      - run: echo "EC2 public IP = ${{ steps.get_ip.outputs.ec2_ip }}"
 
-  app-docker:
-    name: App EC2 Docker
+  # 4️⃣ Déploiement Docker via SSH
+  deploy-ec2:
     runs-on: ubuntu-latest
     needs: infra-aws
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Build Docker Image
-        run: docker build -t $DOCKERHUB_USERNAME/blogproject:latest .
-      - name: Login to Docker Hub
-        run: echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-      - name: Push Docker Image
-        run: docker push $DOCKERHUB_USERNAME/blogproject:latest
+      - run: |
+          ssh -o StrictHostKeyChecking=no -i ci_key ubuntu@${{ needs.infra-aws.outputs.ec2_ip }} "
+          docker login -u '${{ secrets.DOCKERHUB_USERNAME }}' -p '${{ secrets.DOCKERHUB_PASSWORD }}'
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/blogproject:latest
+          docker stop blog || true && docker rm blog || true
+          docker run -d -p 80:8000 --name blog ${{ secrets.DOCKERHUB_USERNAME }}/blogproject:latest
+          "
 
+  # 5️⃣ Smoke test
   smoke-test:
-    name: Smoke Test EC2
     runs-on: ubuntu-latest
-    needs: app-docker
+    needs: deploy-ec2
     steps:
-      - name: Check HTTP Access
-        run: curl -f http://${{ needs.infra-aws.outputs.ec2_ip }}:8000 || exit 1
-
-  destroy-aws:
-    name: Destroy AWS Infra
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-      - name: Load Secrets
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-        run: |
-          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
-          echo "AWS_REGION=$AWS_REGION" >> $GITHUB_ENV
-      - name: Terraform Init
-        run: terraform -chdir=infra init
-      - name: Terraform Destroy
-        run: terraform -chdir=infra destroy -auto-approve -var="aws_access_key=$AWS_ACCESS_KEY_ID" -var="aws_secret_key=$AWS_SECRET_ACCESS_KEY" -var="aws_region=$AWS_REGION"
+      - run: |
+          for i in {1..10}; do
+            curl -fs http://${{ needs.infra-aws.outputs.ec2_ip }} && exit 0
+            sleep 5
+          done
+          echo "App did not respond in time" && exit 1
