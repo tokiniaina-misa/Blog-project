@@ -52,17 +52,13 @@ resource "aws_instance" "docker_server" {
   user_data = <<-EOF
               #!/bin/bash
               sudo apt-get update
-              sudo apt-get install -y docker.io docker-compose git
-              cd /home/ubuntu
-              cd Blog_django
-              echo "${var.env_file}" > .env
-              chmod 600 .env
-              mv /.env /Blog_django
+              sudo apt-get install -y docker.io docker-compose
               sudo systemctl enable docker
               sudo systemctl start docker
-              sudo docker-compose up -d --build
+              docker pull ${{ secrets.DOCKER_USERNAME }}/blog_django:latest
+              docker run -d -p 8000:8000 ${{ secrets.DOCKER_USERNAME }}/blog_django:latest
               EOF
-              
+
   tags = {
     Name = "DockerServer"
   }
