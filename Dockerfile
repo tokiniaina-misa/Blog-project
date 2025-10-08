@@ -7,9 +7,9 @@ COPY requirements.txt /app/
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY .env /app/.env
-
+# Ajout conditionnel du fichier .env
 COPY . /app/
+RUN if [ -f .env ]; then cp .env /app/.env; fi
 
 EXPOSE 8000
 
