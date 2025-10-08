@@ -1,15 +1,14 @@
-# Use the official Python image as a base image
 FROM python:3.11-slim
 
 WORKDIR /app
 
 COPY requirements.txt /app/
-
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Ajout conditionnel du fichier .env
 COPY . /app/
-RUN if [ -f .env ]; then cp .env /app/.env; fi
+
+ARG ENV_CONTENT
+RUN echo "$ENV_CONTENT" > /app/.env
 
 EXPOSE 8000
 
