@@ -89,11 +89,11 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
       - name: Initialiser Terraform
         run: terraform -chdir=infra init
       - name: Appliquer Terraform
-        run: terraform -chdir=infra apply -auto-approve -var="ssh_public_key=${{ vars.SSH_PUBLIC_KEY }}" -var="env_file=${{ secrets.ENV_FILE }}"
+        run: terraform -chdir=infra apply -auto-approve -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" -var="env_file=${{ secrets.ENV_FILE }}"
       - name: Pause pour stabilisation
         run: sleep 50
       - name: Récupérer l'IP EC2
@@ -103,47 +103,47 @@ jobs:
           echo "server_ip=$SERVER_IP" >> $GITHUB_OUTPUT
           echo "$SERVER_IP" > server_ip.txt
       - name: Sauvegarder l'IP EC2
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: ip-ec2
           path: server_ip.txt
 
   test-disponibilite:
-      needs: deploiement-infrastructure
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/download-artifact@v4
-          with:
-            name: ip-ec2
-            path: .
-        - id: get_ip
-          run: echo "server_ip=$(cat server_ip.txt | tr -d '\n')" >> $GITHUB_OUTPUT
-        - name: Test + métriques
-          env:
-            SERVER_IP: ${{ steps.get_ip.outputs.server_ip }}
-          run: |
-            FILE=metrics.json
-            echo "{" > $FILE
-            for i in {1..5}; do
-              START=$(date +%s%3N)
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$SERVER_IP:8000 || echo "000")
-              END=$(date +%s%3N)
-              RESPONSE_TIME=$((END - START))
+    needs: deploiement-infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: ip-ec2
+          path: .
+      - id: get_ip
+        run: echo "server_ip=$(cat server_ip.txt | tr -d '\n')" >> $GITHUB_OUTPUT
+      - name: Test + métriques
+        env:
+          SERVER_IP: ${{ steps.get_ip.outputs.server_ip }}
+        run: |
+          FILE=metrics.json
+          echo "{" > $FILE
+          for i in {1..5}; do
+            START=$(date +%s%3N)
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$SERVER_IP:8000 || echo "000")
+            END=$(date +%s%3N)
+            RESPONSE_TIME=$((END - START))
 
-              if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
-                SUCCESS=true
-              else
-                SUCCESS=false
-              fi
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+              SUCCESS=true
+            else
+              SUCCESS=false
+            fi
 
-              echo "  \"attempt_$i\": {\"success\": $SUCCESS, \"status\": $STATUS, \"response_time_ms\": $RESPONSE_TIME}" >> $FILE
-              [ $i -lt 5 ] && echo "," >> $FILE
+            echo "  \"attempt_$i\": {\"success\": $SUCCESS, \"status\": $STATUS, \"response_time_ms\": $RESPONSE_TIME}" >> $FILE
+            [ $i -lt 5 ] && echo "," >> $FILE
 
-              echo "Attente 10s..."
-              sleep 10
-            done
-            echo "}" >> $FILE
-        - uses: actions/upload-artifact@v4
-          with:
-            name: test-disponibilite-metrics
-            path: metrics.json
+            echo "Attente 10s..."
+            sleep 10
+          done
+          echo "}" >> $FILE
+      - uses: actions/upload-artifact@v3
+        with:
+          name: test-disponibilite-metrics
+          path: metrics.json
