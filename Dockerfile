@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/
 
 ARG ENV_CONTENT
-RUN echo "$ENV_CONTENT" > /app/.env
+RUN printf "%s\n" "$ENV_CONTENT" > /app/.env
 
 EXPOSE 8000
 
