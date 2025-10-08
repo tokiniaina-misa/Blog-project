@@ -43,6 +43,10 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Exécuter les migrations Django
+        run: |
+          python manage.py migrate
+
       - name: Exécuter les tests ${{ matrix.type }}
         run: pytest tests/${{ matrix.type }}/ --junitxml=${{ matrix.type }}-results.xml
 
@@ -72,15 +76,13 @@ jobs:
           context: .
           push: true
           tags: tokiniainami/blog-django:latest
-          build-args: |
-            ENV_CONTENT=${{ secrets.ENV_FILE }}
 
   deploiement-infrastructure:
     runs-on: ubuntu-latest
-    needs: [tests,build-and-push]
+    needs: [tests, build-and-push]
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Installer Terraform
         uses: hashicorp/setup-terraform@v3
         with:
