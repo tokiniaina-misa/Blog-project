@@ -96,10 +96,11 @@ jobs:
       - name: Initialiser Terraform
         run: terraform -chdir=infra init
       - name: Appliquer Terraform
-        run: terraform -chdir=infra apply -auto-approve \
-              -var="ssh_public_key=${{ vars.SSH_PUBLIC_KEY }}" \
-              -var="env_file=${{ secrets.ENV_FILE }}"
-      - name: Pause pour stabilisation
+        run: terraform -chdir=infra apply -auto-approve
+        env:
+          TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+          TF_VAR_env_file: ${{ secrets.ENV_FILE }}
+      - name: Attendre le déploiement
         run: sleep 50
       - name: Récupérer l'IP EC2
         id: get_ip
