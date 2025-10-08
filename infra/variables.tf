@@ -19,3 +19,8 @@ variable "env_file" {
   type        = string
   sensitive   = true
 }
+
+variable "docker_username" {
+  description = "Nom d'utilisateur Docker"
+  type        = string
+}
