@@ -93,7 +93,7 @@ jobs:
       - name: Initialiser Terraform
         run: terraform -chdir=infra init
       - name: Appliquer Terraform
-        run: terraform -chdir=infra apply -auto-approve -var="docker_username=tokiniainami" -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" -var="env_file=${{ secrets.ENV_FILE }}"
+        run: terraform -chdir=infra apply -auto-approve -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" -var="env_file=${{ secrets.ENV_FILE }}"
       - name: Pause pour stabilisation
         run: sleep 50
       - name: Récupérer l'IP EC2
