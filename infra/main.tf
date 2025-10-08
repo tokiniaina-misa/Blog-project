@@ -50,14 +50,37 @@ resource "aws_instance" "docker_server" {
   vpc_security_group_ids = [aws_security_group.docker_sg.id]
 
   user_data = <<-EOF
-              #!/bin/bash
-              sudo apt-get update
-              sudo apt-get install -y docker.io docker-compose
-              sudo systemctl enable docker
-              sudo systemctl start docker
-              docker pull tokiniainami/blog-django:latest
-              docker run -d -p 8000:8000 --name blog-django tokiniainami/blog-django:latest
-              EOF
+            #!/bin/bash
+            set -e
+
+            # Mise à jour et installation de Docker
+            sudo apt-get update
+            sudo apt-get install -y docker.io docker-compose
+            sudo systemctl enable docker
+            sudo systemctl start docker
+
+            # Création du dossier pour le projet
+            mkdir -p /home/ubuntu/blog-django
+            chown ubuntu:ubuntu /home/ubuntu/blog-django
+
+            # Création du fichier .env depuis la variable Terraform
+            echo "${var.env_file}" > /home/ubuntu/blog-django/.env
+            chmod 600 /home/ubuntu/blog-django/.env
+
+            # Pull de la dernière image Docker
+            docker pull tokiniainami/blog-django:latest
+
+            # Supprimer le conteneur existant s’il existe
+            if [ "$(docker ps -aq -f name=blog-django)" ]; then
+              docker rm -f blog-django
+            fi
+
+            # Lancer le conteneur avec le .env
+            docker run -d -p 8000:8000 --name blog-django \
+                --env-file /home/ubuntu/blog-django/.env \
+                tokiniainami/blog-django:latest
+
+            EOF
 
   tags = {
     Name = "DockerServer"
