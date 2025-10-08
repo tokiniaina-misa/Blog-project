@@ -55,8 +55,8 @@ resource "aws_instance" "docker_server" {
               sudo apt-get install -y docker.io docker-compose
               sudo systemctl enable docker
               sudo systemctl start docker
-              docker pull ${var.docker_username}/blog-django:latest
-              docker run -d -p 8000:8000 ${var.docker_username}/blog-django:latest
+              docker pull tokiniainami/blog-django:latest
+              docker run -d -p 8000:8000 tokiniainami/blog-django:latest
               EOF
 
   tags = {
