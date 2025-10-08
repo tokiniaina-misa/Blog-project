@@ -67,12 +67,19 @@ jobs:
           username: ${{ vars.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Créer le fichier .env
+        run: |
+          echo "${{ secrets.ENV_FILE }}" > .env
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
           tags: tokiniainami/blog-django:latest
+
+      - name: Supprimer le fichier .env
+        run: rm .env
 
   deploiement-infrastructure:
     runs-on: ubuntu-latest
