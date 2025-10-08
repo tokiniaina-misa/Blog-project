@@ -1,0 +1,136 @@
+{% extends 'accounts/base_auth.html' %}
+{% block title %}{{ post.title }}{% endblock %}
+{% block content %}
+
+<div class="flex flex-col lg:flex-row gap-8">
+    <div class="flex-1">
+        <div class="bg-white rounded shadow p-8 mb-8">
+            {% if post.image %}
+                <img src="{{ post.image.url }}" class="w-full h-64 object-cover rounded mb-6" alt="Image article">
+            {% endif %}
+            <h1 class="text-4xl font-bold mb-2">{{ post.title }}</h1>
+            <div class="text-gray-500 mb-4">By {{ post.author.username }} on {{ post.created_at|date:"F d, Y" }}</div>
+            <div class="mb-4">
+                <span class="block bg-orange-100 text-gray-800 rounded px-4 py-3 font-medium mb-4">{{ post.summary|default:"Technology is rapidly changing the world around us." }}</span>
+                <div class="text-gray-700 text-lg">{{ post.content|linebreaks }}</div>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-6">
+                {% for tag in post.tags.all %}
+                    <span class="px-3 py-1 rounded bg-blue-100 text-blue-700 text-xs">{{ tag.name }}</span>
+                {% endfor %}
+            </div>
+            <div class="flex gap-4 items-center mb-6">
+                <form method="post" action="/post/{{ post.id }}/like/" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="flex items-center gap-2 px-4 py-2 rounded-lg shadow {{ is_liked|yesno:'bg-blue-600 text-white,bg-gray-200 text-blue-600' }} hover:bg-blue-700 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 10a6 6 0 1112 0A6 6 0 012 10zm8-3a1 1 0 10-2 0v2H6a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"/></svg>
+                        <span>{{ post.likes.count }}</span>
+                    </button>
+                </form>
+                <form method="post" action="/post/{{ post.id }}/dislike/" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="flex items-center gap-2 px-4 py-2 rounded-lg shadow {{ is_disliked|yesno:'bg-red-600 text-white,bg-gray-200 text-red-600' }} hover:bg-red-700 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm-2-7a1 1 0 112 0v2h2a1 1 0 110 2h-2v2a1 1 0 11-2 0v-2H6a1 1 0 110-2h2v-2z"/></svg>
+                        <span>{{ post.dislikes.count }}</span>
+                    </button>
+                </form>
+            </div>
+            {% if user == post.author %}
+                <div class="mt-4 flex gap-2">
+                    <a href="/post/{{ post.id }}/edit/" class="bg-yellow-400 hover:bg-yellow-500 text-white px-4 py-1 rounded">Modifier</a>
+                    <a href="/post/{{ post.id }}/delete/" class="bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded">Supprimer</a>
+                </div>
+            {% endif %}
+        </div>
+        <div class="bg-white rounded shadow p-8 mb-8">
+            <h2 class="text-2xl font-bold mb-6">Comments</h2>
+            <div id="comments-section">
+                {% include 'blog/threaded_comments.html' with comments=comments parent=None post=post user=user %}
+            </div>
+            <script>
+            // JS pour reply, pliage/dépliage
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('.reply-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        var commentId = this.dataset.commentId;
+                        var replyForm = document.getElementById('reply-form-' + commentId);
+                        if (replyForm) {
+                            replyForm.classList.toggle('hidden');
+                        }
+                    });
+                });
+                document.querySelectorAll('.toggle-thread-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        var threadId = this.dataset.threadId;
+                        var thread = document.getElementById('thread-' + threadId);
+                        if (thread) {
+                            thread.classList.toggle('hidden');
+                            this.textContent = thread.classList.contains('hidden') ? 'Show replies' : 'Hide replies';
+                        }
+                    });
+                });
+            });
+            </script>
+            {% if user.is_authenticated %}
+                <form method="post" action="/post/{{ post.id }}/comment/" class="mt-4">
+                    {% csrf_token %}
+                    <textarea name="content" rows="3" class="w-full px-4 py-2 border rounded focus:outline-none mb-2" placeholder="Add a comment..."></textarea>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded transition-all duration-200 hover:scale-105 hover:shadow-lg">Send</button>
+                </form>
+            {% else %}
+                <p class="mt-4 text-gray-600">Log in to comment.</p>
+            {% endif %}
+        </div>
+    </div>
+    <!-- Sidebar -->
+    <aside class="w-full lg:w-80 flex-shrink-0">
+        <div class="bg-white rounded shadow p-6 mb-6">
+            <h4 class="font-bold mb-4">Related Articles</h4>
+            <ul>
+                {% for related in related_articles %}
+                    <li class="mb-2 flex items-center">
+                        <span class="inline-block w-2 h-2 rounded-full mr-2 
+                            {% if related.color == 'red' %}bg-red-500
+                            {% elif related.color == 'blue' %}bg-blue-500
+                            {% elif related.color == 'green' %}bg-green-500
+                            {% elif related.color == 'yellow' %}bg-yellow-500
+                            {% elif related.color == 'purple' %}bg-purple-500
+                            {% elif related.color == 'pink' %}bg-pink-500
+                            {% elif related.color == 'indigo' %}bg-indigo-500
+                            {% elif related.color == 'gray' %}bg-gray-500
+                            {% else %}bg-blue-500{% endif %}"></span>
+                        <a href="{% url 'blog:post_detail' related.id %}" class="hover:underline">{{ related.title }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="bg-white rounded shadow p-6 mb-6">
+            <h4 class="font-bold mb-4">Tags</h4>
+            <div class="flex flex-wrap gap-2">
+                {% for tag in post.tags.all %}
+                    <span class="px-3 py-1 rounded bg-blue-100 text-blue-700 text-xs">{{ tag.name }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="bg-white rounded shadow p-6">
+            <h4 class="font-bold mb-4">Comments</h4>
+            {% for comment in comments|slice:":1" %}
+                <div class="flex items-start gap-4 mb-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+                        {{ comment.author.username|first|upper }}
+                    </div>
+                    <div>
+                        <div class="font-semibold text-gray-800">{{ comment.author.username }}</div>
+                        <div class="text-xs text-gray-500 mb-1">{{ comment.created_at|timesince }} ago</div>
+                        <div class="text-gray-700">{{ comment.content|linebreaks }}</div>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-gray-500">No comments yet.</p>
+            {% endfor %}
+        </div>
+    </aside>
+</div>
+{% endblock %}

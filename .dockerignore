@@ -1,0 +1,18 @@
+# Exclude Python cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Exclude virtual environment
+.venv/
+
+# Exclude local environment files
+.env
+
+# Exclude unnecessary files
+*.log
+*.sqlite3
+
+# Exclude IDE files
+.vscode/
+*.idea/

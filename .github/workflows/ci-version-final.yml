@@ -1,0 +1,55 @@
+name: CI-CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        type: [unit, integration]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test_user"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Préparer l'environnement
+        run: |
+          echo "${{ secrets.ENV_FILE }}" > .env
+          chmod 600 .env
+          echo "DJANGO_SETTINGS_MODULE=blogproject.settings" >> $GITHUB_ENV
+
+      - name: Installer les dépendances
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Exécuter les tests ${{ matrix.type }}
+        run: pytest tests/${{ matrix.type }}/ --junitxml=${{ matrix.type }}-results.xml
+
+      - name: Sauvegarder les résultats ${{ matrix.type }}
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultats-tests-${{ matrix.type }}
+          path: ${{ matrix.type }}-results.xml
+

@@ -1,0 +1,113 @@
+{% extends 'accounts/base_auth.html' %}
+{% block title %}Profil{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto p-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- User Information Card -->
+        <div class="bg-white rounded shadow">
+            <div class="bg-blue-600 py-8 flex flex-col items-center">
+                {% if user.profile.avatar %}
+                    <div class="relative">
+                        <img src="{{ user.profile.avatar.url }}" class="w-32 h-32 rounded-full object-cover border-4 border-white" alt="Avatar">
+                        <label for="avatar-upload" class="absolute bottom-0 right-0 bg-white rounded-full p-2 border border-gray-300 cursor-pointer">
+                            <div class="h-6 w-6 flex items-center justify-center text-blue-600 font-bold">+</div>
+                        </label>
+                        <input id="avatar-upload" type="file" name="avatar" class="hidden">
+                    </div>
+                {% else %}
+                    <div class="relative">
+                        <div class="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center text-4xl text-white border-4 border-white">{{ user.username|first|upper }}</div>
+                        <label for="avatar-upload" class="absolute bottom-0 right-0 bg-white rounded-full p-2 border border-gray-300 cursor-pointer">
+                            <div class="h-6 w-6 flex items-center justify-center text-blue-600 font-bold">+</div>
+                        </label>
+                        <input id="avatar-upload" type="file" name="avatar" class="hidden">
+                    </div>
+                {% endif %}
+                <h2 class="text-2xl font-bold text-white mt-4">{{ user.username }}</h2>
+                <span class="text-gray-200">{{ user.email }}</span>
+            </div>
+            <div class="p-8">
+                <p class="text-gray-700">{{ user.profile.bio }}</p>
+                {% if user.profile.status %}
+                    <p class="text-sm text-blue-500 mt-2">Statut : {{ user.profile.status }}</p>
+                {% endif %}
+                <p class="text-xs text-gray-400 mt-2">Inscrit le {{ user.date_joined|date:"d/m/Y" }}</p>
+                <div class="flex gap-4 mt-4 text-xs text-gray-500">
+                    <span>Posts : {{ user.posts.count }}</span>
+                    <span>Commentaires : {{ user.comments.count }}</span>
+                    <span>Likes : {{ user.liked_posts.count }}</span>
+                </div>
+                <form method="post" enctype="multipart/form-data" class="space-y-4 mt-4">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded">Mettre à jour</button>
+                </form>
+                <a href="{% url 'accounts:password_reset' %}" class="text-xs text-blue-500 underline mt-2 block">Changer le mot de passe</a>
+            </div>
+        </div>
+
+        <!-- Project Metrics Section -->
+        <div class="bg-white p-8 rounded shadow">
+            <h3 class="text-xl font-semibold mb-4">Statistiques du projet</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="bg-gray-50 p-4 rounded shadow">
+                    <h4 class="text-sm text-gray-600">Articles publiés</h4>
+                    <p class="text-2xl font-bold text-blue-600">{{ total_posts }}</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded shadow">
+                    <h4 class="text-sm text-gray-600">Commentaires reçus</h4>
+                    <p class="text-2xl font-bold text-blue-600">{{ total_comments }}</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded shadow">
+                    <h4 class="text-sm text-gray-600">Likes totaux</h4>
+                    <p class="text-2xl font-bold text-blue-600">{{ total_likes }}</p>
+                </div>
+            </div>
+            <canvas id="projectStatsChart" class="mt-8"></canvas>
+        </div>
+    </div>
+
+    <h3 class="text-xl font-semibold mt-8 mb-4">Mes articles publiés</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for post in posts %}
+        <div class="bg-gray-50 p-4 rounded shadow">
+            <a href="{% url 'blog:post_detail' post.id %}" class="text-lg font-bold text-blue-600 hover:underline">{{ post.title }}</a>
+            <p class="text-gray-600 text-sm">Publié le {{ post.created_at|date:"d/m/Y H:i" }}</p>
+            <div class="flex gap-2 mt-1">
+                <a href="/post/{{ post.id }}/edit/" class="text-yellow-500 hover:text-yellow-700 text-xs border border-yellow-400 rounded px-2 py-0.5">Modifier</a>
+                <a href="/post/{{ post.id }}/delete/" class="text-red-600 hover:text-red-800 text-xs border border-red-400 rounded px-2 py-0.5">Supprimer</a>
+            </div>
+        </div>
+        {% empty %}
+        <p class="text-gray-500">Aucun article publié.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('projectStatsChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Articles publiés', 'Commentaires reçus', 'Likes totaux'],
+            datasets: [{
+                label: 'Statistiques du projet',
+                data: ["{{ total_posts|escapejs }}", "{{ total_comments|escapejs }}", "{{ total_likes|escapejs }}"],
+                backgroundColor: ['rgba(54, 162, 235, 0.5)', 'rgba(75, 192, 192, 0.5)', 'rgba(255, 206, 86, 0.5)'],
+                borderColor: ['rgba(54, 162, 235, 1)', 'rgba(75, 192, 192, 1)', 'rgba(255, 206, 86, 1)'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            plugins: {
+                legend: { display: true },
+                tooltip: { enabled: true }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+</script>
+{% endblock %}

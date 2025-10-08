@@ -1,0 +1,64 @@
+{% extends 'accounts/base_auth.html' %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto mt-8">
+    <h2 class="text-2xl font-bold text-blue-600 mb-6">Mes notifications</h2>
+    <ul id="notif-list">
+        {% for notif in notifications %}
+            <a href="{{ notif.url }}" class="block mb-4">
+                <li class="p-4 rounded shadow bg-white flex items-center justify-between cursor-pointer hover:bg-blue-50 {% if notif.is_read %}opacity-60{% endif %} transition-all duration-300 animate-fade-in">
+                    <div>
+                        <span class="font-semibold text-blue-700">{{ notif.message }}</span>
+                        <span class="text-xs text-gray-400 ml-2">{{ notif.created_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    {% if not notif.is_read %}
+                        <form method="post" action="{% url 'blog:mark_notification_read' notif.id %}">
+                            {% csrf_token %}
+                            <button class="ml-4 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Marquer comme lu</button>
+                        </form>
+                    {% endif %}
+                </li>
+            </a>
+        {% empty %}
+            <li class="text-gray-500">Aucune notification.</li>
+        {% endfor %}
+    </ul>
+    <script>
+    function renderNotifications(notifs) {
+        const notifList = document.getElementById('notif-list');
+        notifList.innerHTML = '';
+        if (notifs.length === 0) {
+            notifList.innerHTML = '<li class="text-gray-500">Aucune notification.</li>';
+            return;
+        }
+        notifs.forEach(notif => {
+            const li = document.createElement('li');
+            li.className = `p-4 rounded shadow bg-white flex items-center justify-between cursor-pointer hover:bg-blue-50 ${notif.is_read ? 'opacity-60' : ''} transition-all duration-300 animate-fade-in mb-4`;
+            const link = document.createElement('a');
+            link.href = notif.url;
+            link.className = 'block flex-1';
+            const div = document.createElement('div');
+            div.innerHTML = `<span class='font-semibold text-blue-700'>${notif.message}</span> <span class='text-xs text-gray-400 ml-2'>${notif.created_at}</span>`;
+            link.appendChild(div);
+            li.appendChild(link);
+            if (!notif.is_read) {
+                const form = document.createElement('form');
+                form.method = 'post';
+                form.action = `/blog/notifications/read/${notif.id}/`;
+                form.innerHTML = `<input type='hidden' name='csrfmiddlewaretoken' value='{{ csrf_token }}'><button class='ml-4 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded'>Marquer comme lu</button>`;
+                li.appendChild(form);
+            }
+            notifList.appendChild(li);
+        });
+    }
+    function refreshNotifications() {
+        fetch("{% url 'blog:notifications_json' %}", {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(r => r.json())
+            .then(data => {
+                renderNotifications(data.notifications);
+            });
+    }
+    setInterval(refreshNotifications, 5000);
+    </script>
+</div>
+{% endblock %}
